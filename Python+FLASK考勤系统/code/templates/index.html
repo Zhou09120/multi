@@ -1,0 +1,323 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>内容安全考勤系统</title>
+    <link rel="icon" type="image/png" href="video_guard.png">
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            flex-direction: column;
+            background-color: #f8f9fa;
+        }
+
+        h1 {
+            margin-bottom: 10px;
+            /* Reduced margin */
+            color: #333;
+            font-size: 30px;
+            /* Reduced font size for compactness */
+        }
+
+        /* Button styles */
+        button {
+            padding: 12px 24px;
+            /* Increased padding for larger button size */
+            font-size: 16px;
+            cursor: pointer;
+            /* Increased font size for better readability */
+            margin: 5px;
+            /* Slightly increased margin */
+            border-radius: 8px;
+            /* Larger border radius for a softer look */
+            background-color: #ff69b4;
+            color: white;
+            transition: background-color 0.3s, box-shadow 0.3s;
+        }
+
+        button:hover,
+        button:focus {
+            background-color: #0056b3;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
+        }
+
+        /* Main layout container */
+        .main-container {
+            display: flex;
+            justify-content: center;
+            align-items: flex-start;
+            gap: 20px;
+            /* Reduced gap */
+            padding: 15px;
+            /* Reduced padding */
+            width: 100%;
+            max-width: 1200px;
+            /* Reduced max width */
+        }
+
+        /* Adjust widths for better layout distribution */
+        #videoContainer {
+            flex: 2;
+            padding: 15px;
+            /* Reduced padding */
+            background-color: #ffffff;
+            border-radius: 10px;
+            box-shadow: 0 6px 12px rgba(0, 0, 0, 0.15);
+            margin-bottom: 10px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        .info-container {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+            /* Reduced gap */
+        }
+
+        #questionContainer,
+        #results,
+        #studentInfo {
+            background-color: #ffffff;
+            border-radius: 10px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+            padding: 10px;
+            /* Reduced padding */
+            margin-top: 5px;
+            /* Reduced margin */
+        }
+
+        #questionContainer {
+            display: none;
+        }
+
+        #videoElement {
+            width: 50%;
+            border-radius: 8px;
+        }
+
+        .button-group {
+            display: flex;
+            justify-content: center;
+            flex-wrap: wrap;
+            gap: 15px;
+            /* Reduced gap */
+        }
+
+        select,
+        button {
+            padding: 6px 12px;
+            /* Reduced padding */
+            border-radius: 6px;
+            /* Slightly reduced */
+        }
+
+        .info-container h2 {
+            color: #333;
+            font-size: 20px;
+            /* Reduced font size */
+            margin-bottom: 5px;
+            /* Reduced margin */
+            text-align: left;
+        }
+    </style>
+</head>
+
+<body>
+    <h1>班级考勤系统</h1>
+    <div class="main-container">
+        <div id="videoContainer">
+            <video id="videoElement" autoplay></video>
+            <div class="button-group">
+                <button id="startButton">生成问题</button>
+                <button id="captureButton">开启摄像头</button>
+                <button id="resultsButton">开始考勤</button>
+                <button id="stopButton">关闭摄像头</button>
+            </div>
+            <div>
+                <label for="methodSelect">选择活体检测方法:</label>
+                <select id="methodSelect">
+                    <option value="local detect">本地识别</option>
+                    <option value="network detect">联网识别</option>
+                </select>
+            </div>
+        </div>
+        <div class="info-container">
+            <div id="questionContainer">
+                <h2>问题详情</h2>
+                <p id="displayQuestion"></p>
+            </div>
+            <div id="results">
+                <h2>活体检测结果</h2>
+                <p id="displayResults"></p>
+                <img id="img" src=""> <!-- 显示人脸照片 -->
+            </div>
+            <div id="studentInfo">
+                <h2>考勤信息</h2>
+                <p id="displayStudentInfo"></p>
+            </div>
+        </div>
+    </div>
+    <script>
+        const videoElement = document.getElementById('videoElement');
+        const displayQuestion = document.getElementById('displayQuestion');
+        const displayResults = document.getElementById('displayResults');
+        const questionContainer = document.getElementById('questionContainer');
+        const startButton = document.getElementById('startButton');
+        let currentQuestion = "";
+
+        //document.getElementById('methodSelect').addEventListener('change', function () {
+            // 清空显示和隐藏元素
+           // startButton.style.display = 'none';
+          //  questionContainer.style.display = 'block';
+
+        //    document.getElementById('displayStudentInfo').innerText = "";
+        //    document.getElementById('displayResults').innerText = "";
+        //    document.getElementById('attemptsInfo').innerText = "";
+        //}); 
+
+        //对应问题生成按钮
+        startButton.onclick = function () {
+            fetch('/generate_question')
+                .then(response => response.json())
+                .then(data => {
+                    questionContainer.style.display = 'block';
+                    currentQuestion = data.question;
+                    displayQuestion.innerText = "请做出下列动作: " + currentQuestion;
+                })
+                .catch(error => {
+                    console.error("Error fetching the question:", error);
+                    displayQuestion.innerText = "问题生成错误";
+                });
+        };
+
+        document.getElementById('captureButton').onclick = function () {
+            if (navigator.mediaDevices.getUserMedia) {
+                navigator.mediaDevices.getUserMedia({ video: true })
+                    .then(function (stream) {
+                        videoElement.srcObject = stream;
+                    })
+                    .catch(function (error) {
+                        console.error("Error accessing the camera:", error);
+                    });
+            }
+        };
+
+        document.getElementById('stopButton').onclick = function () {
+            if (videoElement.srcObject) {
+                videoElement.srcObject.getTracks().forEach(track => track.stop());
+                //videoElement.srcObject = null;
+            }
+        };
+        
+        document.getElementById('resultsButton').onclick = function () {
+            let mediaRecorder;
+            const recordedChunks = [];
+            const method = document.getElementById('methodSelect').value;
+            console.log('按钮被点击了');
+
+            startRecording();
+            console.log('调用函数结束');
+
+            function startRecording() {
+                if (videoElement.srcObject) { // 检查是否有视频流
+                    const stream = videoElement.srcObject;
+                    mediaRecorder = new MediaRecorder(stream);
+
+                    console.log('得到了视频流');
+
+                    mediaRecorder.ondataavailable = function (e) {
+                        if (e.data.size > 0) {
+                            recordedChunks.push(e.data);
+                        }
+                    };
+
+                    console.log('按钮被点击了');
+
+                    mediaRecorder.onstop = processVideo;  // 处理录制后的视频
+
+                    mediaRecorder.start();
+                    setTimeout(() => {
+                        mediaRecorder.stop();
+                    }, 10000);  // Record for 10 seconds
+                }
+
+                console.log('没有视频流');
+            }
+
+            function processVideo() {
+                const blob = new Blob(recordedChunks, { type: 'video/webm' });
+                const formData = new FormData();
+                formData.append('video', blob);
+                formData.append('question', currentQuestion);
+                formData.append('method', method);
+
+                fetch('/process_video', {
+                    method: 'POST',
+                    body: formData
+                })
+                    .then(response => response.json())
+                    .then(data => {
+                        console.log(data);
+                        
+                        if (data.data) {
+                            if (data.data.faces && data.data.faces.length > 0) {
+                                const studentId = data.data.faces[0];
+                                console.log('1111');
+                                document.getElementById('displayStudentInfo').innerHTML = `序号: ${studentId}`;
+                                document.getElementById('studentInfo').style.display = 'block';
+                            } else {
+                                document.getElementById('displayStudentInfo').innerHTML = '考勤失败<br>';
+                                document.getElementById('studentInfo').style.display = 'block';
+                            }
+                            document.getElementById('displayResults').innerHTML = `活体检测: ${data.data.live_detected ? '通过' : '未通过'}`;
+
+                             // 处理并显示识别到的面孔图像
+                            //const facePhotoContainer = document.createElement('div');
+                            //facePhotoContainer.id = 'facePhotoContainer';
+                            //facePhotoContainer.style.display = 'block';
+                            //facePhotoContainer.style.marginTop = '10px'; 
+
+                            //const facePhoto = document.getElementById('img');
+                            
+                            document.getElementById('img').src = 'data:image/jpeg;base64,' + data.data.face_photo;
+                            document.getElementById('img').style.width = '100px'; // 设置图片显示大小
+                            document.getElementById('img').style.margin = '5px';
+
+                            //facePhotoContainer.appendChild(facePhoto);
+                            //document.getElementById('results').appendChild(facePhotoContainer);
+                            
+
+                            document.getElementById('results').style.display = 'block';
+
+
+                        } else {
+                            document.getElementById('displayResults').innerHTML = '处理结果失败';
+                            document.getElementById('results').style.display = 'block';
+                        }
+
+                    })
+                    .catch(error => {
+                        console.error('Error processing video:', error);
+                        document.getElementById('displayResults').innerHTML = '处理视频时发生错误';
+                        document.getElementById('results').style.display = 'block';
+                    });
+            }
+        };
+    </script>
+    <footer
+        style="width:60%; padding:10px; background-color:#f8f9fa; text-align:center; position:absolute; bottom:0; left:0; border-top:1px solid #ccc;">
+        <p>© 2024 武汉大学国家网络安全学院 | 2021302181061周姝彤</p>
+    </footer>
+</body>
+
+</html>
